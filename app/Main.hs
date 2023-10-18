@@ -1,6 +1,7 @@
 module Main where
 
 import HasTEE
+
 import Control.Monad.IO.Class
 
 testEnclave1 :: String -> Enclave1 String
