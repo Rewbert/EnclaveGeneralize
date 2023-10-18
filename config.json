@@ -1,0 +1,33 @@
+{
+    "focused": "Client1",
+    "endpoints": {
+        "Client1": {
+            "role": "client",
+            "location": {
+                "ip": "127.0.0.1",
+                "port": 8000
+            }
+        },
+        "Client2": {
+            "role": "client",
+            "location": {
+                "ip": "127.0.0.1",
+                "port": 8001
+            }
+        },
+        "Enclave1": {
+            "role": "server",
+            "location": {
+                "ip": "127.0.0.1",
+                "port": 8002
+            }
+        },
+        "Enclave2": {
+            "role": "server",
+            "location": {
+                "ip": "127.0.0.1",
+                "port": 8003
+            }
+        }
+    }
+}
