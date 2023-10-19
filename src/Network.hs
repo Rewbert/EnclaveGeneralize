@@ -1,5 +1,5 @@
 module Network where
-
+{- | Network crap that is static. -}
 import Control.Monad.IO.Class
 import Data.Binary
 import qualified Data.ByteString.Lazy as B

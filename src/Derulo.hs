@@ -1,6 +1,12 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 
+-- NOTE FROM ROBERT: this module was shamelessly stolen from the Derulo package on
+-- hackage, authored by Taylor Fausak. The package did not compile for my GHC version
+-- due to bounds on the base dependency, but the module compiles just fine if I drop it
+-- in here. Since Derulo is not maintained anymore, it was either this or downgrading
+-- my GHC version.
+
 -- | Derulo parses and renders JSON simply. It aims to provide an RFC 7159
 -- compliant parser and renderer without incurring any dependencies. It is
 -- intended to be used either for learning or in situations where dependencies

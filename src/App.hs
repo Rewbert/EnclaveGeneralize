@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE StarIsType #-}
 {-# LANGUAGE TypeOperators #-}
-
+{- | App code that is static -}
 module App where
 
 import Control.Monad.State

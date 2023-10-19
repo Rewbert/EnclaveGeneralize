@@ -1,6 +1,8 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
-
+{- | This module is a pile of burning crap, as I manually wrote out the entire
+AST stuff. There are nicer ways of doing these things, but I learned TH as I went along
+and found myself too deep in to go back and rework it. -}
 module GenModule where
 
 import Derulo
@@ -8,28 +10,6 @@ import Language.Haskell.TH.Syntax
 
 import Data.List
 import System.Environment (getArgs)
-
--- { "endpoints": [ { "name": "Client1"
---                  , "role": "client"
---                  , "location": {"ip": 127.0.0.1, "port": 8000}
---                  }
-
---                , { "name": "Client2"
---                  , "role": "client"
---                  , "location": {"ip": 127.0.0.1, "port": 8001}
---                  }
-
---                , { "name": "Enclave1"
---                  , "role": "server"
---                  , "location": {"ip": 127.0.0.1, "port": 8002}
---                  }
-
---                , { "name": "Enclave2"
---                  , "role": "server"
---                  , "location": {"ip": 127.0.0.1, "port": 8003}
---                  }
---                ]
--- }
 
 -- | An endpoint can assume the role of a client or a server
 -- A client will never wait for a message, unless it has first sent out a request
@@ -190,10 +170,10 @@ generateDummyClient :: Endpoint -> [Dec]
 generateDummyClient ep = createDummyType ep : clientShouldNotRun ep : concat [dummyMonadStack ep, dummyGateway ep]
 
 generateCurrentEnclave :: Endpoint -> [Dec]
-generateCurrentEnclave ep = createNewtype ep : concat [concreteMonadStack ep, inConcreteEnclave ep]
+generateCurrentEnclave ep = createNewtype ep : concat [concreteMonadStack ep, inConcreteEnclave ep, correctGateway ep]
 
 generateDummyEnclave :: Endpoint -> [Dec]
-generateDummyEnclave ep = createDummyType ep : concat [dummyMonadStack ep, inDummyEnclave ep]
+generateDummyEnclave ep = createDummyType ep : concat [dummyMonadStack ep, inDummyEnclave ep, dummyGateway ep]
 
 closures :: [Dec]
 closures = secureD : secureAp
