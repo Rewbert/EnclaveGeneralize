@@ -28,6 +28,7 @@ library
   --      Test
         Derulo
         HasTEE
+        Plugin
     build-depends:
         base,
         bytestring,
@@ -35,7 +36,8 @@ library
         containers,
         binary,
         network-simple,
-        template-haskell
+        template-haskell,
+        ghc
     default-language: Haskell2010
     ghc-options: -ddump-splices
 

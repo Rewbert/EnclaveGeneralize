@@ -170,10 +170,10 @@ generateDummyClient :: Endpoint -> [Dec]
 generateDummyClient ep = createDummyType ep : clientShouldNotRun ep : concat [dummyMonadStack ep, dummyGateway ep]
 
 generateCurrentEnclave :: Endpoint -> [Dec]
-generateCurrentEnclave ep = createNewtype ep : concat [concreteMonadStack ep, inConcreteEnclave ep, correctGateway ep]
+generateCurrentEnclave ep = createNewtype ep : concat [concreteMonadStack ep, inConcreteEnclave ep, correctGateway ep, [concreteServerRef ep]]
 
 generateDummyEnclave :: Endpoint -> [Dec]
-generateDummyEnclave ep = createDummyType ep : concat [dummyMonadStack ep, inDummyEnclave ep, dummyGateway ep]
+generateDummyEnclave ep = createDummyType ep : concat [dummyMonadStack ep, inDummyEnclave ep, dummyGateway ep, [dummyServerRef ep]]
 
 closures :: [Dec]
 closures = secureD : secureAp
@@ -952,6 +952,56 @@ concreteMkSecureInstances ep eps = correctInstance : appDec : map dummyDec eps
         dec :: Dec
         dec = FunD (mkName "mkSecure") [Clause [WildP] (NormalB $ LamE [WildP] (AppE (VarE $ mkName "error") (LitE $ StringL "this should not be invoked"))) []]
 
+-- * Reference management
+
+concreteServerRef :: Endpoint -> Dec
+concreteServerRef ep = Instance (mkName "ServerRef") (mkName $ name ep) decs
+  where
+    decs :: [Dec]
+    decs = [newRef, setRef, getRef]
+
+    newRef :: Dec
+    newRef = FunD (mkName "newRef") [Clause [xP] (NormalB $ DoE Nothing [stm1, stm2]) []]
+      where
+        stm1 :: Stmt
+        stm1 = BindS aP (UInfixE (VarE $ mkName "liftIO") (VarE $ mkName "$") (AppE (VarE $ mkName "newIORef") xE))
+
+        stm2 :: Stmt
+        stm2 = NoBindS $ UInfixE (VarE $ mkName "return") (VarE $ mkName "$") (UInfixE (VarE $ mkName "return") (VarE $ mkName "$") (AppE (ConE $ mkName "Ref") aE))
+
+    setRef :: Dec
+    setRef = FunD (mkName "setRef") [Clause pats body []]
+      where
+        pats :: [Pat]
+        pats = [ConP (mkName "Ref") [] [xP], aP]
+
+        body :: Body
+        body = NormalB $ UInfixE (ConE $ mkName $ name ep) (VarE $ mkName "$") (AppE3 (VarE $ mkName "writeIORef") xE aE)
+
+    getRef :: Dec
+    getRef = FunD (mkName "getRef") [Clause pats body []]
+      where
+        pats :: [Pat]
+        pats = [ConP (mkName "Ref") [] [xP]]
+
+        body :: Body
+        body = NormalB $ UInfixE (ConE $ mkName $ name ep) (VarE $ mkName "$") (AppE (VarE $ mkName "readIORef") xE)
+
+dummyServerRef :: Endpoint -> Dec
+dummyServerRef ep = Instance (mkName "ServerRef") (mkName $ name ep) decs
+  where
+    decs :: [Dec]
+    decs = [newRef, setRef, getRef]
+
+    newRef :: Dec
+    newRef = FunD (mkName "newRef") [Clause [WildP] (NormalB $ AppE (VarE $ mkName "return") (ConE $ mkName $ name ep)) []]
+
+    setRef :: Dec
+    setRef = FunD (mkName "setRef") [Clause [WildP, WildP] (NormalB $ ConE $ mkName $ name ep) []]
+
+    getRef :: Dec
+    getRef = FunD (mkName "getRef") [Clause [WildP] (NormalB $ ConE $ mkName $ name ep) []]
+
 -- * RunApp
 
 runAppN :: Name
@@ -983,11 +1033,3 @@ enclaveRunApp ep = [sig, dec]
 
             port :: Exp
             port = LitE $ StringL $ show $ snd $ GenModule.location ep
-
--- runApp :: App a -> IO ()
--- runApp app = do
---   vTable <- runAppServer app
---   serveForever (Host "127.0.0.1", "8002") vTable
-
--- runApp :: App a -> IO ()
--- runApp = runAppClient
