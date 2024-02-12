@@ -5,11 +5,11 @@ AST stuff. There are nicer ways of doing these things, but I learned TH as I wen
 and found myself too deep in to go back and rework it. -}
 module GenModule where
 
-import Derulo
-import Language.Haskell.TH.Syntax
+import           Derulo
+import           Language.Haskell.TH.Syntax
 
-import Data.List
-import System.Environment (getArgs)
+import           Data.List
+import           System.Environment         (getArgs)
 
 -- | An endpoint can assume the role of a client or a server
 -- A client will never wait for a message, unless it has first sent out a request
@@ -20,9 +20,9 @@ data Role = Client | Server deriving (Eq, Show)
 -- TODO this is where we are going to add security labels
 data Endpoint = Endpoint
   { -- | Name of the endpoint
-    name :: String,
+    name     :: String,
     -- | Role of the endpoint
-    role :: GenModule.Role,
+    role     :: GenModule.Role,
     -- | ip-socket pair for the endpoint
     location :: (String, Int)
   } deriving Show
@@ -40,7 +40,7 @@ configFromJSON = do
   case readJSON contents of
     Just json -> case parseContents json of
       Just actors -> return actors
-      Nothing -> error "error parsing configuration..."
+      Nothing     -> error "error parsing configuration..."
     Nothing -> error "error parsing configuration..."
 
 parseContents :: JSON -> Maybe Actors
@@ -50,7 +50,7 @@ parseContents (Object objects) = do
   let (current, dummies) = partition (\ep -> name ep == focused) xs
   case current of
     [current] -> return (current, dummies)
-    _ -> Nothing
+    _         -> Nothing
   where
     parseEndpoint :: (String, JSON) -> Maybe Endpoint
     parseEndpoint (name, Object attributes) = do
@@ -60,10 +60,10 @@ parseContents (Object objects) = do
       where
         findRole :: Maybe GenModule.Role
         findRole = case filter (\(n,_) -> n == "role") attributes of
-          [] -> Nothing
+          []                     -> Nothing
           [(_, String "client")] -> Just Client
           [(_, String "server")] -> Just Server
-          _ -> Nothing
+          _                      -> Nothing
 
         findLocation :: Maybe (String, Int)
         findLocation = case filter (\(n,_) -> n == "location") attributes of
@@ -772,7 +772,7 @@ inConcreteEnclave ep = [sig, dec, inst]
 
             port :: Exp
             port = LitE $ IntegerL $ toInteger $ snd $ GenModule.location ep
-    
+
     inst :: Dec
     inst = Instance (mkName "InEnclave") (mkName $ name ep) [dec]
       where
@@ -1014,14 +1014,22 @@ clientRunApp :: [Dec]
 clientRunApp = [sig, dec]
   where
     dec :: Dec
-    dec = FunD runAppN [Clause [xP] (NormalB $ AppE (VarE $ mkName "runAppClient") xE) []]
+    dec = FunD runAppN [Clause [xP] (NormalB $ DoE Nothing [dbgStm, stm2]) []]
+      where
+        dbgStm = NoBindS $ AppE (VarE $ mkName "putStrLn") (LitE . StringL $ "Running client")
+        stm2 = NoBindS $ AppE (VarE $ mkName "runAppClient") xE
 
 enclaveRunApp :: Endpoint -> [Dec]
 enclaveRunApp ep = [sig, dec]
   where
     dec :: Dec
-    dec = FunD runAppN [Clause [xP] (NormalB $ DoE Nothing [stm1, stm2]) []]
+    dec = FunD runAppN [Clause [xP] (NormalB $ DoE Nothing [dbgStm, stm1, stm2]) []]
       where
+        dbgStm :: Stmt
+        dbgStm = NoBindS $
+          AppE (VarE $ mkName "putStrLn")
+          (LitE . StringL $ "Running: " <> name ep)
+
         stm1 :: Stmt
         stm1 = BindS aP (AppE (VarE $ mkName "runAppServer") xE)
 
