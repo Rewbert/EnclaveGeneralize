@@ -21,10 +21,6 @@
             default = pkgs.mkShell
               {
                 buildInputs = with pkgs; [
-                  typst
-                  typstfmt
-                  typst-lsp
-                  gyre-fonts
                   zlib
                   haskellPackages.cabal-install
                   haskellPackages.fourmolu
@@ -35,9 +31,6 @@
                     ))
                   pkgs.haskell-language-server
                 ];
-                shellHook = ''
-                  export TYPST_FONT_PATHS=/nix/store/s45d7530dlxbc0pbwyk684v1kfi505v7-gyre-fonts-2.005/share/fonts/truetype/
-                '';
               };
           });
       defaultPackage = forAllSystems (system: self.packages.${system}.dit313);
