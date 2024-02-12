@@ -1,5 +1,5 @@
 {
-    "focused": "Enclave1",
+    "focused": "Client1",
     "endpoints": {
         "Client1": {
             "role": "client",

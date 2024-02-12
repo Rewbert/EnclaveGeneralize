@@ -1,5 +1,6 @@
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
 {- | This module is a pile of burning crap, as I manually wrote out the entire
 AST stuff. There are nicer ways of doing these things, but I learned TH as I went along
 and found myself too deep in to go back and rework it. -}
@@ -78,10 +79,10 @@ parseContents (Object objects) = do
 type Actors = (Endpoint, [Endpoint])
 
 genModule :: Actors -> [Dec]
-genModule (current, dummies) = case role current of
-  Client ->
-    concat
-      [ generateCurrentClient current,
+genModule (current, dummies) = concat
+      [
+        generateIfDef,
+        generateCurrentClient current,
         concatMap generateDummyClient dummyClients,
         concatMap generateDummyEnclave dummyEnclaves,
         [dummySecurable],
@@ -89,18 +90,20 @@ genModule (current, dummies) = case role current of
         correctRunClient,
         correctRunClients,
         clientRunApp,
-        constants
-      ]
-  Server ->
-    concat
-      [ generateCurrentEnclave current, -- FIXME fix so that we don't generate MonadIO here
+        constants,
+        generateEndIfDef,
+
+        -- Enclave
+        generateIfDef,
+        generateCurrentEnclave current, -- FIXME fix so that we don't generate MonadIO here
         concatMap generateDummyClient dummyClients,
         concatMap generateDummyEnclave dummyEnclaves,
         [concreteSecurable current],
         concreteMkSecureInstances current dummyEnclaves,
         [dummyRunClients],
         enclaveRunApp current,
-        constants
+        constants,
+        generateEndIfDef
       ]
   where
     dummyClients :: [Endpoint]
@@ -160,6 +163,15 @@ pattern AppE3 e1 e2 e3 = AppE (AppE e1 e2) e3
 
 pattern AppE4 :: Exp -> Exp -> Exp -> Exp -> Exp
 pattern AppE4 e1 e2 e3 e4 = AppE (AppE (AppE e1 e2) e3) e4
+
+-- * Generate IfDefs for picking Client or Enclave
+generateEndIfDef :: [[Dec]]
+generateEndIfDef = runQ qoute
+  where
+    qoute :: Q [Dec]
+    qoute = [d| r#ifdef |]
+generateIfDef :: [Dec]
+generateIfDef = undefined
 
 -- * Generate current Client
 

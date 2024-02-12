@@ -1,19 +1,21 @@
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE DerivingVia    #-}
+{-# LANGUAGE GADTs          #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE StarIsType #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE PolyKinds      #-}
+{-# LANGUAGE StarIsType     #-}
+{-# LANGUAGE TypeFamilies   #-}
+{-# LANGUAGE TypeOperators  #-}
 {- | App code that is static -}
 module App where
 
-import Control.Monad.State
+import           Control.Monad.State
 import qualified Data.ByteString.Lazy as B
-import qualified Data.Map as Map
-import Data.IORef
-import Data.Proxy
-import Network -- for the CallID and Function types
+import           Data.IORef
+import qualified Data.Map             as Map
+import           Data.Proxy
+import           Network
+-- for the CallID and Function types
 
 data AppState = AppState {counter :: Int, funs :: Map.Map Int ([B.ByteString] -> IO B.ByteString)} -- FIXME
 
