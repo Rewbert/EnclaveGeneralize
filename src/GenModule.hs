@@ -1,6 +1,4 @@
-{-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TemplateHaskellQuotes #-}
+{-# LANGUAGE PatternSynonyms #-}
 {- | This module is a pile of burning crap, as I manually wrote out the entire
 AST stuff. There are nicer ways of doing these things, but I learned TH as I went along
 and found myself too deep in to go back and rework it. -}
@@ -79,10 +77,9 @@ parseContents (Object objects) = do
 type Actors = (Endpoint, [Endpoint])
 
 genModule :: Actors -> [Dec]
-genModule (current, dummies) = concat
-      [
-        generateIfDef,
-        generateCurrentClient current,
+genModule (current, dummies) = case role current of
+  Client -> concat
+      [ generateCurrentClient current,
         concatMap generateDummyClient dummyClients,
         concatMap generateDummyEnclave dummyEnclaves,
         [dummySecurable],
@@ -90,21 +87,19 @@ genModule (current, dummies) = concat
         correctRunClient,
         correctRunClients,
         clientRunApp,
-        constants,
-        generateEndIfDef,
-
-        -- Enclave
-        generateIfDef,
-        generateCurrentEnclave current, -- FIXME fix so that we don't generate MonadIO here
-        concatMap generateDummyClient dummyClients,
-        concatMap generateDummyEnclave dummyEnclaves,
-        [concreteSecurable current],
-        concreteMkSecureInstances current dummyEnclaves,
-        [dummyRunClients],
-        enclaveRunApp current,
-        constants,
-        generateEndIfDef
+        constants
       ]
+  Server -> concat [
+    -- Enclave
+    generateCurrentEnclave current, -- FIXME fix so that we don't generate MonadIO here
+    concatMap generateDummyClient dummyClients,
+    concatMap generateDummyEnclave dummyEnclaves,
+    [concreteSecurable current],
+    concreteMkSecureInstances current dummyEnclaves,
+    [dummyRunClients],
+    enclaveRunApp current,
+    constants
+    ]
   where
     dummyClients :: [Endpoint]
     dummyClients = filter (\ep -> role ep == Client) dummies
@@ -163,15 +158,6 @@ pattern AppE3 e1 e2 e3 = AppE (AppE e1 e2) e3
 
 pattern AppE4 :: Exp -> Exp -> Exp -> Exp -> Exp
 pattern AppE4 e1 e2 e3 e4 = AppE (AppE (AppE e1 e2) e3) e4
-
--- * Generate IfDefs for picking Client or Enclave
-generateEndIfDef :: [[Dec]]
-generateEndIfDef = runQ qoute
-  where
-    qoute :: Q [Dec]
-    qoute = [d| r#ifdef |]
-generateIfDef :: [Dec]
-generateIfDef = undefined
 
 -- * Generate current Client
 
@@ -1028,7 +1014,7 @@ clientRunApp = [sig, dec]
     dec :: Dec
     dec = FunD runAppN [Clause [xP] (NormalB $ DoE Nothing [dbgStm, stm2]) []]
       where
-        dbgStm = NoBindS $ AppE (VarE $ mkName "putStrLn") (LitE . StringL $ "Running client")
+        dbgStm = NoBindS $ AppE (VarE $ mkName "putStrLn") (LitE . StringL $ "Running: Client")
         stm2 = NoBindS $ AppE (VarE $ mkName "runAppClient") xE
 
 enclaveRunApp :: Endpoint -> [Dec]
