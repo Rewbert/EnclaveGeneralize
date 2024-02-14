@@ -5,6 +5,7 @@ and found myself too deep in to go back and rework it. -}
 module GenModule where
 
 import           Derulo
+import           Language.Haskell.TH.Ppr    (pprint)
 import           Language.Haskell.TH.Syntax
 
 import           Data.List
@@ -79,26 +80,25 @@ type Actors = (Endpoint, [Endpoint])
 genModule :: Actors -> [Dec]
 genModule (current, dummies) = case role current of
   Client -> concat
-      [ generateCurrentClient current,
-        concatMap generateDummyClient dummyClients,
-        concatMap generateDummyEnclave dummyEnclaves,
-        [dummySecurable],
-        dummyMkSecureInstances dummyEnclaves,
-        correctRunClient,
-        correctRunClients,
-        clientRunApp,
-        constants
-      ]
-  Server -> concat [
-    -- Enclave
-    generateCurrentEnclave current, -- FIXME fix so that we don't generate MonadIO here
-    concatMap generateDummyClient dummyClients,
-    concatMap generateDummyEnclave dummyEnclaves,
-    [concreteSecurable current],
-    concreteMkSecureInstances current dummyEnclaves,
-    [dummyRunClients],
-    enclaveRunApp current,
-    constants
+    [ generateCurrentClient current,
+      concatMap generateDummyClient dummyClients,
+      concatMap generateDummyEnclave dummyEnclaves,
+      [dummySecurable],
+      dummyMkSecureInstances dummyEnclaves,
+      correctRunClient,
+      correctRunClients,
+      clientRunApp,
+      constants
+    ]
+  Server -> concat
+    [ generateCurrentEnclave current, -- FIXME fix so that we don't generate MonadIO here
+      concatMap generateDummyClient dummyClients,
+      concatMap generateDummyEnclave dummyEnclaves,
+      [concreteSecurable current],
+      concreteMkSecureInstances current dummyEnclaves,
+      [dummyRunClients],
+      enclaveRunApp current,
+      constants
     ]
   where
     dummyClients :: [Endpoint]
@@ -162,10 +162,10 @@ pattern AppE4 e1 e2 e3 e4 = AppE (AppE (AppE e1 e2) e3) e4
 -- * Generate current Client
 
 generateCurrentClient :: Endpoint -> [Dec]
-generateCurrentClient ep = createNewtype ep : clientShouldRun ep : concat [concreteMonadStack ep, correctGateway ep]
+generateCurrentClient ep = createNewtype ep : clientShouldRun ep : concat [concreteMonadStack ep, correctGateway ep, generateClientAction ep]
 
 generateDummyClient :: Endpoint -> [Dec]
-generateDummyClient ep = createDummyType ep : clientShouldNotRun ep : concat [dummyMonadStack ep, dummyGateway ep]
+generateDummyClient ep =  createDummyType ep : clientShouldNotRun ep : concat [dummyMonadStack ep, dummyGateway ep, generateClientAction ep]
 
 generateCurrentEnclave :: Endpoint -> [Dec]
 generateCurrentEnclave ep = createNewtype ep : concat [concreteMonadStack ep, inConcreteEnclave ep, correctGateway ep, [concreteServerRef ep]]
@@ -175,6 +175,45 @@ generateDummyEnclave ep = createDummyType ep : concat [dummyMonadStack ep, inDum
 
 closures :: [Dec]
 closures = secureD : secureAp
+
+-- * Generate action impl
+generateClientAction :: Endpoint -> [Dec]
+generateClientAction ep = [funTy,fun]
+  where
+    -- liftClientN ca = liftIO $ do
+    --   ref <- newIORef undefined
+    --   toIO $ ca >>= liftIO . writeIORef ref
+    --   readIORef ref
+    funTy = SigD funName $ forAll $ ((-->) `AppT` clientA) `AppT` monadA
+      where
+        forAll = ForallT [] ctx
+        ctx = [AppT (ConT . mkName $ "MonadIO") monad]
+        (-->) = ArrowT
+        a = VarT . mkName $ "a"
+        monad = VarT . mkName $ "m"
+        monadA = AppT monad a
+        client = ConT . mkName . name $ ep
+        clientA = AppT client a
+    fun = FunD funName
+      [ Clause [VarP (mkName "ca")]
+               (NormalB $ AppE (VarE (mkName "liftIO")) $ DoE Nothing [stm1, stm2, stm3]) []
+      ]
+    stm1 = BindS (VarP $ mkName "ref") (AppE newIORef undefined)
+    stm2 = NoBindS $ AppE (VarE $ mkName "toIO")
+      (InfixE (Just . VarE $ mkName "ca") (VarE $ mkName ">>=")
+        (Just $ InfixE (Just liftIO) dot (Just $ AppE writeIORef ref))
+      )
+    stm3 = NoBindS $ AppE readIORef ref
+
+    funName = mkName $ "lift" <> name ep
+    liftIO = VarE $ mkName "liftIO"
+    writeIORef = VarE $ mkName "writeIORef"
+    newIORef = VarE $ mkName "newIORef"
+    readIORef = VarE $ mkName "readIORef"
+    dot = VarE $ mkName "."
+    ref = VarE $ mkName "ref"
+    undefined = VarE (mkName "undefined")
+
 
 -- | Generates a newtype for the current compilation target. E.g
 -- will generate
@@ -341,6 +380,7 @@ locP = VarP loc
 
 locE :: Exp
 locE = VarE loc
+
 
 -- * Concrete instances
 

@@ -1,11 +1,10 @@
-{-# LANGUAGE CPP            #-}
-{-# LANGUAGE DerivingVia    #-}
-{-# LANGUAGE GADTs          #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE PolyKinds      #-}
-{-# LANGUAGE StarIsType     #-}
-{-# LANGUAGE TypeFamilies   #-}
-{-# LANGUAGE TypeOperators  #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DerivingVia           #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE StarIsType            #-}
+{-# LANGUAGE TypeFamilies          #-}
 {- | App code that is static -}
 module App where
 

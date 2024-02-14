@@ -39,7 +39,7 @@ library
         template-haskell,
         ghc
     default-language: Haskell2010
-    --ghc-options: -ddump-splices
+    ghc-options: -ddump-splices
 
 -- A copyright notice.
 -- copyright:
@@ -53,10 +53,10 @@ executable enclave
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base, EnclaveGeneralize, scotty, transformers, text
+    build-depends:    base, EnclaveGeneralize, scotty, transformers, text, mtl
     hs-source-dirs:   app
     default-language: Haskell2010
-    --ghc-options: -ddump-splices -O3
+    ghc-options: -ddump-splices -O3
 
 extra-source-files: 
     CHANGELOG.md,
