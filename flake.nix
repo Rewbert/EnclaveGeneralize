@@ -25,6 +25,9 @@
                   haskellPackages.cabal-install
                   haskellPackages.fourmolu
                   haskellPackages.ghcid
+                  just
+                  jq
+                  gcc
                   (haskellPackages.ghcWithPackages
                     (
                       pkgs: [ haskellPackages.QuickCheck ]

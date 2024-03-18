@@ -1,26 +1,33 @@
 {
-    "focused": "Client1",
-    "endpoints": {
-        "Client1": {
-            "role": "client",
-            "location": {
-                "ip": "127.0.0.1",
-                "port": 8000
-            }
-        },
-        "Enclave1": {
-            "role": "server",
-            "location": {
-                "ip": "127.0.0.1",
-                "port": 8002
-            }
-        },
-        "Enclave2": {
-            "role": "server",
-            "location": {
-                "ip": "127.0.0.1",
-                "port": 8003
-            }
-        }
+  "focused": "Client1",
+  "endpoints": {
+    "Client1": {
+      "role": "client",
+      "location": {
+        "ip": "127.0.0.1",
+        "port": 8000
+      }
+    },
+    "Overlord": {
+      "role": "server",
+      "location": {
+        "ip": "127.0.0.1",
+        "port": 8001
+      }
+    },
+    "Worker1": {
+      "role": "server",
+      "location": {
+        "ip": "127.0.0.1",
+        "port": 8002
+      }
+    },
+    "Worker2": {
+      "role": "server",
+      "location": {
+        "ip": "127.0.0.1",
+        "port": 8003
+      }
     }
+  }
 }
