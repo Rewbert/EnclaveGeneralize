@@ -48,6 +48,8 @@ client1 api = do
 
         chan <- newChan
 
+        -- Alright for the client to use threads, as I imagine it 
+        -- runs in a less restricted environment compared to an enclave.
         res <- forM [1..workCount] $ \c -> do
             forkIO $ do
               putStrLn $ "Client " <> show c <> " requesting work";
