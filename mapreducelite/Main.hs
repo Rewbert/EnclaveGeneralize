@@ -4,9 +4,9 @@
 module Main where
 
 import           Control.Concurrent       (forkIO, newChan, threadDelay,
-                                           writeChan)
-import           Control.Concurrent.Async
+                                           writeChan, readChan)
 import           Control.Concurrent.Chan  (readChan)
+import           Control.Concurrent.Async
 import           Control.Monad            (forM, forM_, unless)
 import           Control.Monad.Trans
 import           Data.IORef
@@ -31,6 +31,8 @@ overlord w'db'ref api value = do
 
   res <- gateway $ api <@> value
 
+  -- If possible I want to avoid using forkIO/async, as
+  -- I want this to work without requiring OS threads.
   liftIO $ withAsync (pure ()) $ \a -> do
     res <- wait a
     liftIO $ print res
