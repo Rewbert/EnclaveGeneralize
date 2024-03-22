@@ -1,5 +1,8 @@
+{-# LANGUAGE InstanceSigs #-}
 -- {-# OPTIONS_GHC -fplugin Plugin #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module Main where
@@ -13,10 +16,18 @@ import Control.Concurrent (
  )
 import Control.Concurrent.Async
 import Control.Concurrent.Chan (readChan)
-import Control.Monad (forM, forM_, unless)
+import Control.Monad (foldM, forM, forM_, unless)
 import Control.Monad.Trans
+import Data.Binary (Binary (..), Get, Put, Word8)
+import Data.Binary.Get (getByteString, getInt32host, getInt64host, getInthost, getWord32host)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSLC
 import Data.IORef
-import Data.Text.Lazy (pack)
+import Data.Int (Int64)
+import qualified Data.Text as T
+import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+import Data.Text.Lazy (pack, unpack)
+import Debug.Trace (traceShow, traceShowId)
 import HasTEE
 import Test.QuickCheck
 
@@ -26,32 +37,54 @@ type Workers = [(WorkerId, Status)]
 type WorkerId = Int
 data Status = Working | Waiting
 
+data WorkOrder
+  = MapOrder Int64
+  | ReduceOrder [String]
+
+instance Binary WorkOrder where
+  put :: WorkOrder -> Put
+  put (MapOrder i) = put (0 :: Word8) <> put i
+  put (ReduceOrder s) = put (1 :: Word8) <> putList s
+
+  get :: Get WorkOrder
+  get = do
+    int <- get @Word8
+    if int == 0
+      then MapOrder . fromIntegral <$> get @Int64
+      else ReduceOrder <$> get
+
 {- | Exclaimer
 Implementing map reduce with multiple workers is most likely not possible
-as it requires requests to be handled asynchronously
+as it requires requests to be handled asynchronously.
+
+Scratch that, it seems that SGX allows threading in some capacity.
 -}
-processWorker1 :: Int -> Worker1 Int
-processWorker1 magic = liftIO $ generate arbitrary
+work :: WorkOrder -> IO String
+work (MapOrder i) = do
+  char <- generate arbitrary :: IO Char
+  pure $ traceShowId $ replicate (fromIntegral $ traceShowId i) char
+work (ReduceOrder s) = undefined
 
-processWorker2 :: Int -> Worker2 Int
-processWorker2 magic = liftIO $ generate arbitrary
+processWorker1 :: WorkOrder -> Worker1 String
+processWorker1 = liftIO . work
 
-overlord :: Overlord (Ref Workers) -> Secure (Int -> Worker1 Int) -> Secure (Int -> Worker2 Int) -> Int -> Overlord Int
-overlord w'db'ref api1 api2 value = do
+processWorker2 :: WorkOrder -> Worker2 String
+processWorker2 = liftIO . work
+
+overlord :: Overlord (Ref Workers) -> Secure (WorkOrder -> Worker1 String) -> Secure (WorkOrder -> Worker2 String) -> Int64 -> Overlord String
+overlord w'db'ref api1 api2 amount = do
   w'db <- w'db'ref
   w'db <- getRef w'db
 
-  -- If possible I want to avoid using forkIO/async, as
-  -- I want this to work without requiring OS threads.
-  res <- gateway $ api1 <@> value
+  mapResults <- forM [0 .. amount] $ \_ -> gateway $ api1 <@> MapOrder amount
 
   liftIO $ withAsync (pure ()) $ \a -> do
     res <- wait a
     liftIO $ print res
 
-  pure res
+  pure $ concat mapResults
 
-client1 :: Secure (Int -> Overlord Int) -> Client1 ()
+client1 :: Secure (Int64 -> Overlord String) -> Client1 ()
 client1 api = do
   liftIO $
     mapM_
@@ -65,8 +98,9 @@ client1 api = do
           -- runs in a less restricted environment compared to an enclave.
           res <- forM [1 .. workCount] $ \c -> do
             forkIO $ do
-              putStrLn $ "Client " <> show c <> " requesting work"
-              resp <- liftClient1 (gateway $ api <@> 0)
+              req <- flip mod 16 . abs <$> generate arbitrary
+              putStrLn $ "Client " <> show c <> " requesting work: " <> show req
+              resp <- liftClient1 (gateway $ api <@> req)
               putStrLn $ "Client " <> show c <> " got result " <> show resp
               writeChan chan ()
 
@@ -81,7 +115,7 @@ client1 api = do
 
 app :: App ()
 app = do
-  enclave1st <- newRef [(0, Waiting), (1, Waiting)]
+  enclave1st <- newRef $ map (,Waiting) [0 .. 1]
   w1 <- inEnclave processWorker1
   w2 <- inEnclave processWorker2
   ol <- inEnclave (overlord enclave1st w1 w2)
