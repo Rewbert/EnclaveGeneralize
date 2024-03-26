@@ -71,17 +71,22 @@ processWorker1 = liftIO . work
 processWorker2 :: WorkOrder -> Worker2 String
 processWorker2 = liftIO . work
 
+-- since enclaves can not safetly call other encalaves in the context of IO this is a dud
 overlord :: Overlord (Ref Workers) -> Secure (WorkOrder -> Worker1 String) -> Secure (WorkOrder -> Worker2 String) -> Int64 -> Overlord String
 overlord w'db'ref api1 api2 amount = do
   w'db <- w'db'ref
   w'db <- getRef w'db
 
-  mapResults <- forM [0 .. amount] $ \_ -> gateway $ api1 <@> MapOrder amount
+  let callApi1 = gateway $ api1 <@> MapOrder amount
 
-  liftIO $ withAsync (pure ()) $ \a -> do
-    res <- wait a
-    liftIO $ print res
+  chan <- liftIO newChan
 
+  forM_ [0 .. amount] $ \_ ->
+    liftIO $ forkIO $ do
+      res <- callApi1
+      writeChan chan res
+
+  mapResults <- forM [0 .. amount] $ \_ -> liftIO . readChan $ chan
   pure $ concat mapResults
 
 client1 :: Secure (Int64 -> Overlord String) -> Client1 ()
